@@ -12,28 +12,87 @@
 
 ## 0.1 工作流程约束
 
-**功能开发必须按以下顺序执行：**
+**功能开发必须按以下 6 个阶段顺序执行，每个阶段有明确的输入、产出和交接协议：**
 
-1. **Brainstorm** — 使用 superpowers:brainstorming，流程如下：
-   - **提问前调研**：先搜索相关学术论文和技术文献，补充领域知识，确保提出的问题方向权威、有深度
-   - **提问**：基于调研结果提出关键问题（问题可能超出当前能力范围，这是正常的）
-   - **提问后论证**：搜索最新论文做方案调研，寻找类似开源项目验证方案可行性，确保解决方案有权威论据支撑
-2. **Git Worktrees** — 使用 superpowers:using-git-worktrees 创建隔离工作区
-3. **架构治理（arc-kit）** — 定义"做什么、为什么、给谁看"，按以下顺序生成架构制品：
-   - `/arckit:principles` — 架构原则（项目首次时执行）
-   - `/arckit:stakeholders` — 干系人分析
-   - `/arckit:requirements` — 需求规格（BR/FR/NFR/INT/DR，即 Spec）
-   - `/arckit:risk` — 风险评估
-   - `/arckit:data-model` — 数据模型设计
-   - `/arckit:diagram` — 架构图（C4、组件图、部署图等）
-   - `/arckit:adr` — 关键架构决策记录
-   - `/arckit:wardley` — Wardley Map 战略分析（需要时）
-   - `/arckit:traceability` — 可追溯性矩阵（干系人→需求→组件→用例）
-   - 批量生成时使用 `/arckit:build` 并行编排
-4. **实现计划** — 使用 superpowers:writing-plans，基于 arc-kit 产出的需求规划代码实现步骤
-5. **SDD + TDD** — 编写软件设计文档（定义"怎么做"），再使用 superpowers:test-driven-development 进行测试驱动开发
+```
+阶段1 问题发现 → 阶段2 隔离工作区 → 阶段3 架构治理 → 阶段4 实现计划 → 阶段5 TDD执行 → 阶段6 完成分支
+[Superpowers]    [Superpowers]       [ArcKit]         [Superpowers]      [Superpowers]      [Superpowers]
+```
 
-**分工原则：** Superpowers 负责开发流程（怎么写代码、怎么隔离、怎么测试），Arc-kit 负责架构治理（做什么、为什么、给谁看）。两者不重复。
+### 阶段 1：问题发现（Superpowers）
+
+使用 `superpowers:brainstorming`，**职责限定为问题空间探索，不产出完整 spec**。
+
+- **提问前调研**：搜索相关学术论文和技术文献，补充领域知识
+- **提问**：基于调研结果提出关键问题（遵循 0.3 节系统性提问约束）
+- **提问后论证**：搜索最新论文和开源项目，验证方案可行性
+- **产出**：问题陈述 + 选定方案方向（保存至 `docs/superpowers/specs/` 作为探索记录）
+- **不产出**：完整架构设计、组件列表、数据模型（这些属于阶段 3 的职责）
+
+> **边界约束**：Brainstorming 回答"要不要做"和"大方向选哪个"。"具体做什么"由阶段 3 的 ArcKit REQ 文档权威定义。
+
+### 阶段 2：隔离工作区（Superpowers）
+
+使用 `superpowers:using-git-worktrees` 创建隔离工作区。
+
+### 阶段 3：架构治理（ArcKit）
+
+定义"做什么、为什么、给谁看"。**按 ArcKit 层级依赖顺序执行，不可跳层或乱序：**
+
+| 层级 | 命令 | 产出 | 依赖 |
+|------|------|------|------|
+| Tier 0 | `/arckit:principles` | 架构原则 | 无（项目首次时执行） |
+| Tier 1 | `/arckit:stakeholders` | 干系人分析 | principles |
+| Tier 2 | `/arckit:risk` | 风险评估 | stakeholders |
+| Tier 4 | `/arckit:requirements` | 需求规格（BR/FR/NFR/INT/DR）| stakeholders + principles |
+| Tier 6 | `/arckit:data-model` | 数据模型设计 | requirements |
+| Tier 6 | `/arckit:diagram` | 架构图（C4、组件图、部署图等）| requirements |
+| Tier 6 | `/arckit:adr` | 关键架构决策记录 | requirements |
+| Tier 6 | `/arckit:wardley` | Wardley Map 战略分析（需要时）| requirements |
+| Tier 13 | `/arckit:traceability` | 可追溯性矩阵 | 所有上游制品 |
+
+批量生成时使用 `/arckit:build` 并行编排（仅限同层级内并行）。
+
+- **唯一权威 Spec**：ArcKit 的 REQ 文档（`ARC-*-REQ-v*.md`）是"做什么"的唯一权威源
+- **产出位置**：`projects/<project-name>/` 目录下，按 ArcKit 命名规范
+
+### 阶段 4：实现计划（Superpowers）
+
+使用 `superpowers:writing-plans`。
+
+- **输入源**：阶段 3 产出的 ArcKit REQ 文档（不是阶段 1 的探索记录）
+- **制品桥接**：Plan 中的每个任务必须引用对应的 ArcKit 需求 ID（如 `FR-001`、`NFR-003`），确保追溯链不断裂
+- **产出**：任务级实现计划（保存至 `docs/superpowers/plans/`）
+
+### 阶段 5：TDD 执行（Superpowers）
+
+使用 `superpowers:test-driven-development` + `superpowers:subagent-driven-development`。
+
+- 每个子任务按 红→绿→重构 循环执行
+- 子 agent 的 prompt 中必须包含对应的 ArcKit 需求 ID，确保实现可追溯
+
+### 阶段 6：完成分支（Superpowers）
+
+使用 `superpowers:finishing-a-development-branch`。
+
+- 验证所有测试通过
+- 提交/合并/PR
+
+---
+
+**分工原则（修订版）：**
+
+| 关注点 | 权威插件 | 另一个插件的角色 |
+|--------|----------|------------------|
+| 做什么（需求/范围） | ArcKit REQ | Superpowers 消费 REQ 生成 Plan |
+| 为什么（动机/风险） | ArcKit（stakeholders + risk） | Superpowers brainstorming 做初步探索 |
+| 怎么做（代码实现） | Superpowers（plan + TDD） | ArcKit 不介入实现 |
+| 怎么隔离（分支/工作区） | Superpowers（worktree） | ArcKit 不介入 |
+| 做得对不对（追溯/合规） | ArcKit（traceability） | Superpowers 在任务中引用需求 ID |
+
+**交接协议**：阶段之间的交接通过制品文件路径实现，不依赖对话上下文。每个阶段开始时必须读取上一阶段的产出文件，而非依赖记忆。
+
+---
 
 **小修复豁免：** 以下情况可跳过完整流程，直接在 worktree 中修复并提交：
 - 单行 bug 修复或 typo 修正
